@@ -1,0 +1,9 @@
+opencv读取Mat的值可以用下面两种方式：
+1：
+int a = (int)image.at<uchar>(i,j)这种方法比较慢
+
+2:
+uchar *a = image.ptr<uchar>(i)
+int b = (int)a[j]
+
+

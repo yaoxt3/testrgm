@@ -1,0 +1,3 @@
+/home/yxt/document/testcpp/testrgm/CMakeFiles/edit_cache.dir
+/home/yxt/document/testcpp/testrgm/CMakeFiles/rebuild_cache.dir
+/home/yxt/document/testcpp/testrgm/CMakeFiles/testrgm.dir

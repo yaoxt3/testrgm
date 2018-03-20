@@ -2,6 +2,7 @@
 #include <fstream>
 #include <stack>
 #include <vector>
+#include <cmath>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -15,7 +16,7 @@ int aa = 0;
 int MAX = 500;
 int max_set_num = 50;
 int setnum = 1; //set order number
-const int max_shift = 2;
+const int max_shift = 2; // change search scope
 const int max_ptemp = 10000;
 
 struct Pointset
@@ -58,9 +59,15 @@ struct nPointset
 struct MomentInv
 {
     int flag;
-    int mwidth;
-    int mhigh;
-    double hu[7]; // seven eignevalue
+    int *minmaxw; // max and min width
+    int *minmaxh; // max and min high
+    double *hu; // seven eignevalue
+    MomentInv(){
+        flag = 0;
+        hu = new double [7];
+        minmaxw = new int[2];
+        minmaxh = new int[2];
+    }
 
 };
 
@@ -71,8 +78,9 @@ nPointset *v_nPointset; // store all point set in v_nPointset.
 MomentInv *momentinv;
 void construct_shift();
 int find_flag(int,int,int,int);
-void RGM_function(Mat);
+void RgmFunc(Mat);
 void MomentInvariant(int,int);
+void HuMomentsFunc(MomentInv *);
 
 // this function is used to construct search path
 void construct_shift()
@@ -103,7 +111,7 @@ int find_flag(int x,int y,int row,int col)
         seed.pop();
         for(int i=0; i<maxnum; i++){
             Pointset p = top + pointshift[i];
-            if(p.x>=0 && p.x<row && p.y>=0 && p.y<col && points[p.x][p.y].pixel==0 && points[p.x][p.y].flag==0){
+            if(p.x>=0 && p.x<row && p.y>=0 && p.y<col && points[p.x][p.y].pixel==1 && points[p.x][p.y].flag==0){
                 seed.push(points[p.x][p.y]);
             }
         }
@@ -124,7 +132,7 @@ int find_flag(int x,int y,int row,int col)
     return 1;    
 }
 
-void RGM_function(Mat image)
+void RgmFunc(Mat image)
 {
     construct_shift();
     ptemp = new Pointset[max_ptemp];
@@ -139,18 +147,77 @@ void RGM_function(Mat image)
         for(int j=0; j<cols; j++){
             points[i][j].x = i;
             points[i][j].y = j;
-            points[i][j].pixel = (int)data[j]/255;
+            points[i][j].pixel = (255-(int)data[j])/255;
         }
     }
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
-            if(points[i][j].pixel==0 && points[i][j].flag==0){
+            if(points[i][j].pixel==1 && points[i][j].flag==0){
                 find_flag(i,j,rows,cols);
             }
         }
     }
     MomentInvariant(rows,cols);
 
+}
+
+void HuMomentsFunc(MomentInv *moments)
+{
+    for(int i=0; i<setnum; i++){
+        int num = v_nPointset[i].num;
+        int centerx=0, centery=0;
+        double m00=0, m01=0, m10=0;
+        double m11=0, m12=0, m20=0;
+        double m02=0, m21=0, m30=0, m03=0;
+        double n11=0, n12=0, n20=0;
+        double n02=0, n21=0, n30=0, n03=0;
+        double tmp0=0, tmp1=0, tmp2=0, tmp3=0, tmp4=0;
+        for(int j=0; j<num; j++){
+            m00 += v_nPointset[i].pset[j].pixel; 
+            m01 += v_nPointset[i].pset[j].y * v_nPointset[i].pset[j].pixel;
+            m10 += v_nPointset[i].pset[j].x * v_nPointset[i].pset[j].pixel;
+        }
+        centerx = (int)(m10/m00+0.5);
+        centery = (int)(m01/m00+0.5);
+
+        for(int j=0; j<num; j++){
+            int x = v_nPointset[i].pset[j].x - centerx;
+            int y = v_nPointset[i].pset[j].y - centery;
+            m11 += x*y*v_nPointset[i].pset[j].pixel;
+            m12 += x*y*y*v_nPointset[i].pset[j].pixel;
+            m20 += x*x*v_nPointset[i].pset[j].pixel;
+            m02 += y*y*v_nPointset[i].pset[j].pixel;
+            m21 += x*x*y*v_nPointset[i].pset[j].pixel;
+            m03 += y*y*y*v_nPointset[i].pset[j].pixel;
+            m30 += x*x*x*v_nPointset[i].pset[j].pixel;
+        }
+
+        // scaling normalization
+        n11 = m11/pow(m00,2);
+        n20 = m20/pow(m00,2);
+        n02 = m02/pow(m00,2);
+        n12 = m12/pow(m00,2.5);
+        n21 = m21/pow(m00,2.5);
+        n30 = m30/pow(m00,2.5);
+        n03 = m03/pow(m00,2.5);
+
+        // temp variable
+        tmp0 = n20 - n02;
+        tmp1 = n30 - 3*n12;
+        tmp2 = 3*n21 - n03;
+        tmp3 = n30 + n12;
+        tmp4 = n21 + n03;
+        
+        //hu moment invariant
+        moments[i].hu[0] = n20+n02;
+        moments[i].hu[1] = tmp0*tmp0+4*n11*n11;
+        moments[i].hu[2] = tmp1*tmp1+tmp2*tmp2;
+        moments[i].hu[3] = tmp3*tmp3+tmp4*tmp4;
+        moments[i].hu[4] = tmp1*tmp3*(tmp3*tmp3-3*tmp4*tmp4)+tmp2*tmp4*(3*tmp3*tmp3-tmp4*tmp4);
+        moments[i].hu[5] = tmp0*(tmp3*tmp3-tmp4*tmp4)+4*n11*tmp3*tmp4;
+        moments[i].hu[6] = tmp2*tmp3*(tmp3*tmp3-3*tmp4*tmp4)-(n30+3*n12)*tmp4*(3*tmp3*tmp3-tmp4*tmp4); 
+
+    }
 }
 
 void MomentInvariant(int rows,int cols)
@@ -172,9 +239,6 @@ void MomentInvariant(int rows,int cols)
         /* outfile << endl; */
         /* outfile1 << endl; */
     }
-    /* for(int i=0;i<setnum;i++){ */
-    /*     cout << v_nPointset[i].flag << " " << v_nPointset[i].num << endl; */
-    /* } */
     
     //construct subimage to calculate moment invariant elgnevaule
     momentinv = new MomentInv[setnum];
@@ -182,6 +246,7 @@ void MomentInvariant(int rows,int cols)
         int num = v_nPointset[i].num;
         int minwidth = 10000, maxwidth = -1;
         int minhigh = 10000, maxhigh = -1;
+        momentinv[i].flag = v_nPointset[i].flag;
         for(int j=0; j<num; j++){
             int a = v_nPointset[i].pset[j].x;
             int b = v_nPointset[i].pset[j].y;
@@ -194,10 +259,23 @@ void MomentInvariant(int rows,int cols)
             if(a > maxhigh)
                 maxhigh = a;
         }
-        momentinv[i].mwidth = maxwidth - minwidth;
-        momentinv[i].mhigh = maxhigh - minhigh;
+        momentinv[i].minmaxw[0] = minwidth;
+        momentinv[i].minmaxw[1] = maxwidth;
+        momentinv[i].minmaxh[0] = minhigh;
+        momentinv[i].minmaxh[1] = maxhigh;
+        /* momentinv[i].mwidth = maxwidth - minwidth + 1; // image width */
+        /* momentinv[i].mhigh = maxhigh - minhigh + 1;    // image high */
     }
 
+    //Hu moment invariant
+    HuMomentsFunc(momentinv);
+    for(int j=1;j<setnum;j++){
+        cout << j << ": ";
+        for(int i=0;i<7;i++)
+            cout << momentinv[j].hu[i] << " ";
+        cout << endl;
+    }
+    while(1);
 }
 
 int main()
@@ -205,7 +283,7 @@ int main()
     /* Mat image = imread("../black.png"); */
     Mat image = imread("../pointcloud1.png");
     cvtColor(image,image,CV_BGR2GRAY);
-    RGM_function(image);
+    RgmFunc(image);
     /* Mat image = imread("../pointcloud.png"); */
     /* cvtColor(image,image,CV_BGR2GRAY); */
     /* Mat result; */

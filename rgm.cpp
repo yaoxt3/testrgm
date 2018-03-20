@@ -10,6 +10,7 @@
 using namespace cv;
 using namespace std;
 
+int aa = 0;
 //aaaaaa
 int MAX = 500;
 int max_set_num = 50;

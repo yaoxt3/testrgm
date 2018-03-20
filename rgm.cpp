@@ -10,6 +10,7 @@
 using namespace cv;
 using namespace std;
 
+//aaaaaa
 int MAX = 500;
 int max_set_num = 50;
 int setnum = 1; //set order number

@@ -157,7 +157,7 @@ void RgmFunc(Mat image)
             }
         }
     }
-    MomentInvariant(rows,cols);
+    /* MomentInvariant(rows,cols); */
 
 }
 
@@ -223,7 +223,7 @@ void HuMomentsFunc(MomentInv *moments)
 void MomentInvariant(int rows,int cols)
 {
     v_nPointset = new nPointset[setnum];
-    /* ofstream outfile("./out.txt"); */
+    ofstream outfile("./out.txt");
     /* ofstream outfile1("./out1.txt"); */
     for(int i=0; i<rows; i++){
         for(int j=0; j<cols; j++){
@@ -269,13 +269,13 @@ void MomentInvariant(int rows,int cols)
 
     //Hu moment invariant
     HuMomentsFunc(momentinv);
-    for(int j=1;j<setnum;j++){
-        cout << j << ": ";
-        for(int i=0;i<7;i++)
-            cout << momentinv[j].hu[i] << " ";
-        cout << endl;
-    }
-    while(1);
+    /* for(int j=1;j<setnum;j++){ */
+    /*     cout << j << ": "; */
+    /*     for(int i=0;i<7;i++) */
+    /*         cout << momentinv[j].hu[i] << " "; */
+    /*     cout << endl; */
+    /* } */
+    /* while(1); */
 }
 
 int main()
@@ -284,6 +284,7 @@ int main()
     Mat image = imread("../pointcloud1.png");
     cvtColor(image,image,CV_BGR2GRAY);
     RgmFunc(image);
+    MomentInvariant(image.rows,image.cols);
     /* Mat image = imread("../pointcloud.png"); */
     /* cvtColor(image,image,CV_BGR2GRAY); */
     /* Mat result; */
